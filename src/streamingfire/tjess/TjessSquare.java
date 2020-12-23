@@ -1,20 +1,24 @@
 package streamingfire.tjess;
 
+import java.awt.*;
+
 /**
  * A square on the chess board.
  */
-public class Square {
+public class TjessSquare extends Rectangle
+{
 
     private final Location location;
     private final SquareColor squareColor;
+    private static final int DIM = 100;
     private Piece currentPiece = null;
 
-    public Square(Location location) {
+    public TjessSquare(Location location) {
         this.location = location;
         squareColor = returnSquareColor();
     }
 
-    public Square(Location location, Piece piece){
+    public TjessSquare(Location location, Piece piece){
         this(location);
         this.currentPiece = piece;
     }
@@ -27,9 +31,9 @@ public class Square {
         int rank = location.getRank();
         char file = location.getFile();
         if (file == 'a' || file == 'c' || file == 'e' || file == 'g') {
-            return (rank % 2 == 1) ? SquareColor.DARK : SquareColor.WHITE;
-        } else {
             return (rank % 2 == 0) ? SquareColor.DARK : SquareColor.WHITE;
+        } else {
+            return (rank % 2 == 1) ? SquareColor.DARK : SquareColor.WHITE;
         }
     }
 
@@ -67,6 +71,8 @@ public class Square {
         WHITE,
         DARK
     }
+
+
 
     public static class Location {
         private final char file; // X place on the board
