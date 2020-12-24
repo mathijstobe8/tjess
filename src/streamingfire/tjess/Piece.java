@@ -20,7 +20,7 @@ public class Piece extends JPanel {
     public Piece(Pieces piece, Player.Color color){
         this.piece = piece;
         this.color = color;
-        System.out.println(returnImagePath());
+        //System.out.println(returnImagePath());
 
         try {
             image = ImageIO.read(new File("img/" + returnImagePath()));
@@ -35,12 +35,11 @@ public class Piece extends JPanel {
 
     public BufferedImage getImage() { return image; }
 
-    private String returnImagePath(){
+    protected String returnImagePath(){
         String prefix, suffix;
 
         prefix = color.toString().equals("BLACK") ? "DARK" : "LIGHT";
         suffix = piece.toString();
-
 
         return (prefix + "_" + suffix + ".png");
     }

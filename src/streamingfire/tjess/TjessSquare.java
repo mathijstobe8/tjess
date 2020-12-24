@@ -1,6 +1,8 @@
 package streamingfire.tjess;
 
 import java.awt.*;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
 
 /**
  * A square on the chess board.
@@ -16,6 +18,8 @@ public class TjessSquare extends Rectangle
     public TjessSquare(Location location) {
         this.location = location;
         squareColor = returnSquareColor();
+
+
     }
 
     public TjessSquare(Location location, Piece piece){
@@ -62,9 +66,17 @@ public class TjessSquare extends Rectangle
         return false;
     }
 
+    public String getReferenceName(){
+        return getCurrentPiece().returnImagePath().replace(".png", "") + "_" + getLocFileRank().getFile() + getLocFileRank().getRank();
+    }
+
     @Override
     public String toString(){
         return currentPiece == null ? ("Empty.") : (currentPiece.toString() + ", " + currentPiece.getColor().toString());
+    }
+
+    public Location getLocFileRank(){
+        return this.location;
     }
 
     public enum SquareColor {
@@ -72,8 +84,7 @@ public class TjessSquare extends Rectangle
         DARK
     }
 
-
-
+    @Deprecated
     public static class Location {
         private final char file; // X place on the board
         private final int rank; // Y place on the board

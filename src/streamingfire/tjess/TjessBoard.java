@@ -14,14 +14,18 @@ public class TjessBoard extends JLayeredPane {
 
     private char[] files = new char[] { 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'};
     private TjessSquare[][] starting_board = new TjessSquare[8][8];
-
     private TjessSquare[][] squaresCurrentBoard = new TjessSquare[8][8];
 
     public TjessBoard(){
+        setBounds(0, 0, 400, 400);
         setStartingBoard();
 
         squaresCurrentBoard = starting_board;
     }
+
+    /*
+    Board functionality, so only in memory, board will be updated later.
+     */
 
     /**
      * Get the current board state of the game.
@@ -61,20 +65,54 @@ public class TjessBoard extends JLayeredPane {
                 tjessSquare = new TjessSquare(location, piece);
                 starting_board[file-1][rank-1] = tjessSquare;
 
-                if (piece != null) {
+/*                if (piece != null) {
                     System.out.println("RANK: " + rank + ", FILE: " + file + ", PIECE: " + piece.toString() + ", COLOR: " + tjessSquare.getCurrentPiece().getColor().toString());
                 } else {
                     System.out.println("RANK: " + rank + ", FILE: " + file + ", PIECE: null");
 
-                }
+                }*/
             }
         }
+    }
+
+    /**
+     * Remove a piece from the board. Is used in making moves, but also when a piece is slain.
+     * @param file as X
+     * @param rank as Y
+     */
+    public void removePieceFromBoard(int file, int rank){
+
+    }
+
+    /**
+     * Remove a piece from the board. Is used with a TjessSquare, and get the piece from this square.
+     * @param square to get the piece on that square.
+     */
+    public void removePieceFromBoard(TjessSquare square){
+
+    }
+
+    public void addPieceToBoard(int file, int rank, Piece piece){
+
+    }
+
+    /**
+     * Moves a piece on the board. Updates board afterwards.
+     * @param from, from square, get the piece on this square. Update it.
+     * @param to, to square, set the piece on this square. Update it.
+     * @requires from: to have a piece on it.
+     */
+    public void movePiece(TjessSquare from, TjessSquare to){
+
+    }
+
+    private boolean isValidMove(){
+        return false;
     }
 
     /*
      * JAVA SWING FUNCTIONALITY
      */
-
     private static final int RECT_X = 50;
     private static final int RECT_Y = RECT_X;
     private static final int RECT_WIDTH = 50;
@@ -84,14 +122,32 @@ public class TjessBoard extends JLayeredPane {
 
     /**
      * Adding all the squares (rectangles) to the GUI. One time process.
-     * @param file
-     * @param rank
+     * @param file as square X
+     * @param rank as square Y
      */
     public void addSquareToSwing(int file, int rank){
         TjessSquare rect = squaresCurrentBoard[file-1][rank-1];
         rect.setBounds(RECT_X * (file-1), RECT_Y * (8-rank), RECT_WIDTH, RECT_HEIGHT);
 
         squares.add(rect);
+    }
+
+    /**
+     * If there is a piece at this location, remove it from swing.
+     * @param file as X of the square.
+     * @param rank as Y of the square
+     */
+    public void removePieceFromSwing(int file, int rank){
+        //System.out.println("Found: " + squaresCurrentBoard[file-1][rank-1].getReferenceName());
+        for (Component c : getComponentsInLayer(0)){
+            //System.out.println("Component name: " + c.getName() + ", location: " + c.getBounds());
+            if (c.getName().equals(squaresCurrentBoard[file-1][rank-1].getReferenceName())){
+                remove(c);
+                revalidate();
+                repaint();
+                //System.out.println("Removed.");
+            }
+        }
     }
 
     /**
@@ -103,9 +159,10 @@ public class TjessBoard extends JLayeredPane {
     public void addPieceToSwing(int file, int rank){
         BufferedImage img = squaresCurrentBoard[file-1][rank-1].getCurrentPiece().getImage();
         JLabel pic = new JLabel(new ImageIcon(img));
+        pic.setName(squaresCurrentBoard[file-1][rank-1].getReferenceName());
         pic.setBounds(RECT_X * (file-1), RECT_Y * (8-rank), RECT_WIDTH, RECT_HEIGHT);
 
-        add(pic);
+        add(pic, 0);
     }
 
     @Override
@@ -118,17 +175,9 @@ public class TjessBoard extends JLayeredPane {
         super.paintComponent(g);
         Graphics2D g2 = (Graphics2D)g;
         for (TjessSquare rect : squares){
-
             g2.draw(rect);
-
-            if (rect.getSquareColor() == TjessSquare.SquareColor.DARK){
-                g2.setColor(Color.DARK_GRAY);
-            } else {
-                g2.setColor(Color.WHITE);
-            }
-
+            g2.setColor(rect.getSquareColor() == TjessSquare.SquareColor.DARK ? Color.DARK_GRAY : Color.WHITE);
             g2.fill(rect);
-
         }
     }
 }

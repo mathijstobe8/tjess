@@ -27,6 +27,10 @@ public abstract class Player {
         return this.color;
     }
 
+    public void makeMove(){
+
+    }
+
     /**
      * An enumeration of piece/player colors.
      */
