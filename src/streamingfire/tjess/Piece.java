@@ -50,7 +50,7 @@ public class Piece extends JPanel {
 
     @Override
     public String toString(){
-        return piece.toString();
+        return piece.toString() + "_" + getColor().toString();
     }
 
     /**
