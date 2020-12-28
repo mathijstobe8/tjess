@@ -3,7 +3,6 @@ package streamingfire.tjess;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.image.BufferedImage;
-import java.lang.reflect.Array;
 import java.util.ArrayList;
 
 /**
@@ -13,19 +12,22 @@ The board of the game.
 public class TjessBoard extends JLayeredPane {
 
     public String boardName;
+    private GameManager gm; // gamemanager attached to board
 
-    private char[] files = new char[] { 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'};
-    private TjessSquare[][] starting_board = new TjessSquare[8][8];
-    private TjessSquare[][] squaresCurrentBoard = new TjessSquare[8][8];
+    private final char[] FILES = new char[] { 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'};
+    private final TjessSquare[][] STARTING_BOARD = new TjessSquare[8][8];
 
-    public TjessBoard(){
-        setBounds(0, 0, 400, 400);
+    private TjessSquare[][] squaresCurrentBoard;
+
+    public TjessBoard(GameManager gm){
         setStartingBoard();
         boardName = "TjessBoard1";
 
-        squaresCurrentBoard = starting_board;
+        this.gm = gm;
 
-        displayBoardToCMD();
+        squaresCurrentBoard = STARTING_BOARD;
+
+        //displayBoardToCMD();
     }
 
     /*
@@ -55,8 +57,8 @@ public class TjessBoard extends JLayeredPane {
         for(int file = 1; file <= 8; file++){
             for(int rank = 1; rank <= 8; rank++){
                 Piece piece = null;
-                TjessSquare tjessSquare = null;
-                TjessSquare.Location location = new TjessSquare.Location(files[file-1], rank);
+                TjessSquare tjessSquare;
+                TjessSquare.Location location = new TjessSquare.Location(FILES[file-1], rank);
                 if (rank == 2){
                     piece = new Piece(Piece.Pieces.PAWN, Player.Color.WHITE);
                 } else if (rank == 1 || rank == 8){
@@ -79,7 +81,7 @@ public class TjessBoard extends JLayeredPane {
                     piece = new Piece(Piece.Pieces.PAWN, Player.Color.BLACK);
                 }
                 tjessSquare = new TjessSquare(location, piece);
-                starting_board[file-1][rank-1] = tjessSquare;
+                STARTING_BOARD[file-1][rank-1] = tjessSquare;
 
 /*                if (piece != null) {
                     System.out.println("RANK: " + rank + ", FILE: " + file + ", PIECE: " + piece.toString() + ", COLOR: " + tjessSquare.getCurrentPiece().getColor().toString());
@@ -106,16 +108,15 @@ public class TjessBoard extends JLayeredPane {
      * @requires from: to have a piece on it.
      */
     public void movePiece(TjessSquare from, TjessSquare to){
-        System.out.println("Attempting to move piece: " + from.getCurrentPiece().toString() + " from "
-                + from.getLocFileRank().toString() + " to " + to.getLocFileRank().toString());
-
+        //.out.println("Attempting to move piece: " + from.getCurrentPiece().toString() + " from "
+        //        + from.getLocFileRank().toString() + " to " + to.getLocFileRank().toString());
         MoveInformation info = getMoveInformation(from, to);
         String fromRefName = info.from.getReferenceName();
         String toRefName = info.to.getReferenceName();
+        Piece slainPiece = to.isEmpty() ? null : to.getCurrentPiece();
 
-        System.out.println("FRom ref name: " + fromRefName);
-        System.out.println("To ref name: " + toRefName);
-
+        //System.out.println("FRom ref name: " + fromRefName);
+        //System.out.println("To ref name: " + toRefName);
 
         if (info.isValidMove()){
             // move the piece actually
@@ -125,10 +126,19 @@ public class TjessBoard extends JLayeredPane {
             getBoard()[info.from.getLocFileRank().getFileAsInt()-1][info.from.getLocFileRank().getRank()-1].changeState(null);
 
             if(!info.getHitPiece()){
+                // moved without hitting another piece
                 updateBoardToSwing(info.from, info.to, fromRefName);
             } else {
+                // moved with hitting another piece
                 updateBoardToSwing(info.from, info.to, fromRefName, toRefName);
+                assert slainPiece != null;
+                gm.AddPieceToSlainListGUI(slainPiece);
             }
+
+            System.out.println("BLACK King under check: " + isKingUnderCheck(Player.Color.BLACK));
+            System.out.println("WHITE King under check: " + isKingUnderCheck(Player.Color.WHITE));
+
+
         } else {
             // wasn;t a valid move.
             System.out.println("This move wasn't a valid move. ");
@@ -138,6 +148,7 @@ public class TjessBoard extends JLayeredPane {
 
     // VARIABLES FOR MOVING
     private TjessSquare storedSquare = null;
+    private ArrayList<TjessSquare> highlightedSquares = new ArrayList<>();
 
     /**
      * Add the square to the selected squares.
@@ -145,6 +156,10 @@ public class TjessBoard extends JLayeredPane {
      * @return true if the square is currently selected to be moved, returns false if a square was already selected.
      */
     public boolean squarePressed(TjessSquare square){
+/*        for (TjessSquare s : highlightedSquares){
+            s.removeHighlighted();
+        }*/
+
         if (square.getCurrentPiece() == null){
             // There is currently no piece on this square.
             if (storedSquare != null){
@@ -160,24 +175,42 @@ public class TjessBoard extends JLayeredPane {
             }
         } else {
             // There is a piece on this square.
+
+
             if (storedSquare != null){
                 // Piece is attempting to replace another piece (attack). Is this valid?
-                movePiece(storedSquare, square);
-                storedSquare = null;
-                return true;
+                if(square.getCurrentPiece().getColor() == storedSquare.getCurrentPiece().getColor()){
+                    // immediately switch to that square.
+                    storedSquare = null;
+
+                    /*for (TjessSquare s : getPossibleSquaresToMoveTo(square)){
+                        s.setHighlighted();
+                        highlightedSquares.add(s);
+                    }*/
+                } else {
+                    movePiece(storedSquare, square);
+                    storedSquare = null;
+                }
+
             } else {
                 // Player is about to do something with this square.
+                // display possible squares to move to
+/*                for (TjessSquare s : getPossibleSquaresToMoveTo(square)){
+                    s.setHighlighted();
+                    highlightedSquares.add(s);
+                }*/
+
                 storedSquare = square;
-                return true;
             }
+            return true;
         }
     }
 
     /**
-     *
-     * @param from
-     * @param to
-     * @return
+     * An object moveInformation that contains information regarding the move.
+     * @param from square
+     * @param to square
+     * @return The information regarding the move.
      * @requires from to have a piece on it.
      */
     private MoveInformation getMoveInformation(TjessSquare from, TjessSquare to){
@@ -186,13 +219,15 @@ public class TjessBoard extends JLayeredPane {
 
         ArrayList<TjessSquare> possibleSquares = getPossibleSquaresToMoveTo(from);
 
+        System.out.println("Getting move information for attempt: " + from.toString() + " to " + to.toString());
+
+        for (TjessSquare s : possibleSquares) { System.out.println("Possible square: " + s.toString()); }
         for (TjessSquare s : possibleSquares){
-            System.out.println("Possible square: " + s.toString());
             if (s==to) {
                 isValidMove = true;
-                if((from.getLocFileRank().getFileAsInt() != to.getLocFileRank().getFileAsInt()) ||
-                        from.getLocFileRank().getRank() != to.getLocFileRank().getRank()){
+                if(!s.isEmpty()){
                     hitPieceOnMove = true;
+                    System.out.println("Hit piece on the move");
                 }
                 break;
             }
@@ -201,13 +236,8 @@ public class TjessBoard extends JLayeredPane {
         return new MoveInformation(isValidMove, hitPieceOnMove, from, to);
     }
 
-    /**
-     * Also takes into account taken squares.
-     * @param fromSquare
-     * @return
-     */
     private ArrayList<TjessSquare> getPossibleSquaresToMoveTo(TjessSquare fromSquare){
-        ArrayList<TjessSquare> possibleSquares = new ArrayList<TjessSquare>();
+        ArrayList<TjessSquare> possibleSquares = new ArrayList<>();
 
         int from_x = fromSquare.getLocFileRank().getFileAsInt() - 1;
         int from_y = fromSquare.getLocFileRank().getRank() - 1;
@@ -244,6 +274,7 @@ public class TjessBoard extends JLayeredPane {
                 break;
             case KNIGHT:
                 // KNIGHT CAN MOVE 2 STEPS 1 LEFT. 2 STEPS 1 RIGHT. IN ANY DIRECTION.
+                possibleSquares.addAll(getKnightSquares(from_x, from_y, PIECE_COLOR));
                 break;
             default:
                 throw new IllegalStateException("Unexpected value: " + piece.getPiece());
@@ -329,8 +360,8 @@ public class TjessBoard extends JLayeredPane {
 
         ArrayList<TjessSquare> possibleSquares = new ArrayList<>();
 
-        int valX = -1;
-        int valY = -1;
+        int valX;
+        int valY;
 
         // LEFT UP
         if (from_x != 0 && from_y != 7){
@@ -429,79 +460,84 @@ public class TjessBoard extends JLayeredPane {
         if(PIECE_COLOR == Player.Color.WHITE){
             TjessSquare frontOfPawn, leftDiag, rightDiag;
 
-            /* Can return error when pawn is at the 8th rank. But won't matter since this piece will be replaced anyway.*/
-            frontOfPawn = getBoard()[from_x][from_y + 1];
+            if (from_y != 7){
+                /* Can return error when pawn is at the 8th rank. But won't matter since this piece will be replaced anyway.*/
+                frontOfPawn = getBoard()[from_x][from_y + 1];
 
-            // for slaying other pieces
-            if (from_x > 0 && from_y < 7){
-                leftDiag = getBoard()[from_x - 1][from_y + 1];
+                // for slaying other pieces
+                if (from_x > 0 && from_y < 7){
+                    leftDiag = getBoard()[from_x - 1][from_y + 1];
 
-                // only add it when there is a piece here.
-                if (!leftDiag.isEmpty() && leftDiag.getCurrentPiece().getColor() != Player.Color.WHITE){
-                    possibleSquares.add(leftDiag);
-                }
-            }
-
-            if (from_x < 7 && from_y < 7){
-                rightDiag = getBoard()[from_x + 1][from_y + 1];
-
-                // only add it when there is a piece here
-
-                if (!rightDiag.isEmpty() && rightDiag.getCurrentPiece().getColor() != Player.Color.WHITE) {
-                    possibleSquares.add(rightDiag);
-                }
-            }
-
-            if (from_y == 1){
-                // PAWN IS AT THE SECOND RANK, SO CAN MOVE 2 FORWARD
-                if (frontOfPawn.isEmpty()){
-                    possibleSquares.add(frontOfPawn);
-                    TjessSquare frontOfFrontOfPawn = getBoard()[from_x][from_y + 2];
-                    if (frontOfFrontOfPawn.isEmpty()){
-                        possibleSquares.add(frontOfFrontOfPawn);
+                    // only add it when there is a piece here.
+                    if (!leftDiag.isEmpty() && leftDiag.getCurrentPiece().getColor() != Player.Color.WHITE){
+                        possibleSquares.add(leftDiag);
                     }
                 }
-            } else {
-                if (frontOfPawn.isEmpty()){
-                    possibleSquares.add(frontOfPawn);
+
+                if (from_x < 7 && from_y < 7){
+                    rightDiag = getBoard()[from_x + 1][from_y + 1];
+
+                    // only add it when there is a piece here
+
+                    if (!rightDiag.isEmpty() && rightDiag.getCurrentPiece().getColor() != Player.Color.WHITE) {
+                        possibleSquares.add(rightDiag);
+                    }
+                }
+
+                if (from_y == 1){
+                    // PAWN IS AT THE SECOND RANK, SO CAN MOVE 2 FORWARD
+                    if (frontOfPawn.isEmpty()){
+                        possibleSquares.add(frontOfPawn);
+                        TjessSquare frontOfFrontOfPawn = getBoard()[from_x][from_y + 2];
+                        if (frontOfFrontOfPawn.isEmpty()){
+                            possibleSquares.add(frontOfFrontOfPawn);
+                        }
+                    }
+                } else {
+                    if (frontOfPawn.isEmpty()){
+                        possibleSquares.add(frontOfPawn);
+                    }
                 }
             }
         } else {
             TjessSquare frontOfPawn, leftDiag, rightDiag;
-            frontOfPawn = getBoard()[from_x][from_y - 1];
 
-            // for slaying other pieces
-            if (from_x < 7){
-                leftDiag = getBoard()[from_x + 1][from_y - 1];
+            if (from_y != 0){
+                frontOfPawn = getBoard()[from_x][from_y - 1];
 
-                // only add it when there is a piece here.
-                if (!leftDiag.isEmpty()  && leftDiag.getCurrentPiece().getColor() != Player.Color.BLACK){
-                    possibleSquares.add(leftDiag);
-                }
-            }
+                // for slaying other pieces
+                if (from_x < 7){
+                    leftDiag = getBoard()[from_x + 1][from_y - 1];
 
-            if (from_x > 0){
-                rightDiag = getBoard()[from_x - 1][from_y - 1];
-
-                // only add it when there is a piece here
-
-                if (!rightDiag.isEmpty() && rightDiag.getCurrentPiece().getColor() != Player.Color.BLACK) {
-                    possibleSquares.add(rightDiag);
-                }
-            }
-
-            if (from_y == 6){
-                // PAWN IS AT THE SECOND RANK, SO CAN MOVE 2 FORWARD
-                if (frontOfPawn.isEmpty()){
-                    possibleSquares.add(frontOfPawn);
-                    TjessSquare frontOfFrontOfPawn = getBoard()[from_x][from_y - 2];
-                    if (frontOfFrontOfPawn.isEmpty()){
-                        possibleSquares.add(frontOfFrontOfPawn);
+                    // only add it when there is a piece here.
+                    if (!leftDiag.isEmpty()  && leftDiag.getCurrentPiece().getColor() != Player.Color.BLACK){
+                        possibleSquares.add(leftDiag);
                     }
                 }
-            } else {
-                if (frontOfPawn.isEmpty()){
-                    possibleSquares.add(frontOfPawn);
+
+                if (from_x > 0){
+                    rightDiag = getBoard()[from_x - 1][from_y - 1];
+
+                    // only add it when there is a piece here
+
+                    if (!rightDiag.isEmpty() && rightDiag.getCurrentPiece().getColor() != Player.Color.BLACK) {
+                        possibleSquares.add(rightDiag);
+                    }
+                }
+
+                if (from_y == 6){
+                    // PAWN IS AT THE SECOND RANK, SO CAN MOVE 2 FORWARD
+                    if (frontOfPawn.isEmpty()){
+                        possibleSquares.add(frontOfPawn);
+                        TjessSquare frontOfFrontOfPawn = getBoard()[from_x][from_y - 2];
+                        if (frontOfFrontOfPawn.isEmpty()){
+                            possibleSquares.add(frontOfFrontOfPawn);
+                        }
+                    }
+                } else {
+                    if (frontOfPawn.isEmpty()){
+                        possibleSquares.add(frontOfPawn);
+                    }
                 }
             }
         }
@@ -537,13 +573,148 @@ public class TjessBoard extends JLayeredPane {
 
         ArrayList<TjessSquare> possibleSquares = new ArrayList<>();
 
+        int valX;
+        int valY;
+
+        valX = from_x - 1;
+        valY = from_y + 2;
+
+        if (valX >= 0 && valY <= 7){
+            TjessSquare square = getBoard()[valX][valY];
+            if (square.isEmpty() || (!square.isEmpty() && square.getCurrentPiece().getColor() != PIECE_COLOR)){
+                possibleSquares.add(square);
+            }
+        }
+
+        valX = from_x + 1;
+        valY = from_y + 2;
+
+        if (valX <= 7 && valY <= 7){
+            TjessSquare square = getBoard()[valX][valY];
+            if (square.isEmpty() || (!square.isEmpty() && square.getCurrentPiece().getColor() != PIECE_COLOR)){
+                possibleSquares.add(square);
+            }
+        }
+
+        valX = from_x - 2;
+        valY = from_y + 1;
+
+        if (valX >= 0 && valY <= 7){
+            TjessSquare square = getBoard()[valX][valY];
+            if (square.isEmpty() || (!square.isEmpty() && square.getCurrentPiece().getColor() != PIECE_COLOR)){
+                possibleSquares.add(square);
+            }
+        }
+
+        valX = from_x - 2;
+        valY = from_y - 1;
+
+        if (valX >= 0 && valY >= 0){
+            TjessSquare square = getBoard()[valX][valY];
+            if (square.isEmpty() || (!square.isEmpty() && square.getCurrentPiece().getColor() != PIECE_COLOR)){
+                possibleSquares.add(square);
+            }
+        }
+
+        valX = from_x + 2;
+        valY = from_y + 1;
+
+        if (valX <= 7 && valY <= 7){
+            TjessSquare square = getBoard()[valX][valY];
+            if (square.isEmpty() || (!square.isEmpty() && square.getCurrentPiece().getColor() != PIECE_COLOR)){
+                possibleSquares.add(square);
+            }
+        }
+
+        valX = from_x + 2;
+        valY = from_y - 1;
+
+        if (valX <= 7 && valY >= 0){
+            TjessSquare square = getBoard()[valX][valY];
+            if (square.isEmpty() || (!square.isEmpty() && square.getCurrentPiece().getColor() != PIECE_COLOR)){
+                possibleSquares.add(square);
+            }
+        }
+
+        valX = from_x - 1;
+        valY = from_y - 2;
+
+        if (valX >= 0 && valY >= 0){
+            TjessSquare square = getBoard()[valX][valY];
+            if (square.isEmpty() || (!square.isEmpty() && square.getCurrentPiece().getColor() != PIECE_COLOR)){
+                possibleSquares.add(square);
+            }
+        }
+
+        valX = from_x + 1;
+        valY = from_y - 2;
+
+        if (valX <= 7 && valY >= 0){
+            TjessSquare square = getBoard()[valX][valY];
+            if (square.isEmpty() || (!square.isEmpty() && square.getCurrentPiece().getColor() != PIECE_COLOR)){
+                possibleSquares.add(square);
+            }
+        }
+
         return possibleSquares;
+    }
+
+    private TjessSquare getKingSquare(Player.Color KING_COLOR){
+        for (int file = 1; file <= 8; file++){
+            for (int rank = 1; rank <= 8; rank++){
+                TjessSquare s = getBoard()[file-1][rank-1];
+
+                if(!s.isEmpty()){
+                    if(s.isKing() && s.getCurrentPiece().getColor() == KING_COLOR){
+                        return s;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    public boolean isKingUnderCheck(Player.Color KING_COLOR){
+
+        // for each piece with another color. check if they check the king.
+        ArrayList<TjessSquare> pieces = getAllSquaresWithPieces(KING_COLOR == Player.Color.BLACK ? Player.Color.WHITE : Player.Color.BLACK);
+
+        TjessSquare king = getKingSquare(KING_COLOR);
+
+        for (TjessSquare piece : pieces){
+            ArrayList<TjessSquare> possibleSquaresToMoveTo = getPossibleSquaresToMoveTo(piece);
+
+            for (TjessSquare possibleSquare : possibleSquaresToMoveTo){
+                assert king != null;
+                if (possibleSquare.getReferenceName().equals(king.getReferenceName())){
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private ArrayList<TjessSquare> getAllSquaresWithPieces(Player.Color color){
+        ArrayList<TjessSquare> allPieces = new ArrayList<>();
+
+        for (int file = 1; file <= 8; file++){
+            for (int rank = 1; rank <= 8; rank++){
+                TjessSquare s = getBoard()[file-1][rank-1];
+                if (!s.isEmpty()) {
+                    if (s.getCurrentPiece().getColor() == color){
+                        allPieces.add(s);
+                    }
+                }
+            }
+        }
+
+        return allPieces;
     }
 
     /**
      * A class which will have information about the move the player did.
      */
-    private static class MoveInformation {
+    private class MoveInformation {
         private boolean isValidMove;
         private boolean hitPiece; // did it hit the piece to go to this square?
         private TjessSquare from;
@@ -596,9 +767,9 @@ public class TjessBoard extends JLayeredPane {
      */
 
     private static final int RECT_X = 50;
-    private static final int RECT_Y = RECT_X;
+    private static final int RECT_Y = 50;
     private static final int RECT_WIDTH = 50;
-    private static final int RECT_HEIGHT = RECT_WIDTH;
+    private static final int RECT_HEIGHT = 50;
 
     /**
      * Adding all the squares (rectangles) to the GUI. One time process.
@@ -609,6 +780,7 @@ public class TjessBoard extends JLayeredPane {
         TjessSquare square = squaresCurrentBoard[file-1][rank-1];
         square.setBounds(RECT_X * (file-1), RECT_Y * (8-rank), RECT_WIDTH, RECT_HEIGHT);
         square.setBackground(square.getSquareColor() == TjessSquare.SquareColor.DARK ? Color.DARK_GRAY : Color.WHITE);
+
 
         add(square, 0);
     }

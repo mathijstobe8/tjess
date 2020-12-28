@@ -1,9 +1,13 @@
 package streamingfire.tjess;
 
+import javax.imageio.ImageIO;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
 
 /**
  * A square on the chess board.
@@ -13,15 +17,25 @@ public class TjessSquare extends JPanel implements MouseListener
     private final Location location;
     private final SquareColor squareColor;
     private Piece currentPiece = null;
-    Color originalColor;
+    public Color originalColor;
 
     private TjessBoard parentBoard;
+
+    private JLabel highlightLabel;
 
     public TjessSquare(Location location) {
         this.location = location;
         squareColor = returnSquareColor();
 
         addMouseListener(this);
+
+        /*ImageIcon imageIcon = new ImageIcon("img/HIGHLIGHT.png"); // load the image to a imageIcon
+        Image image = imageIcon.getImage(); // transform it
+        Image newimg = image.getScaledInstance(40, 40,  java.awt.Image.SCALE_SMOOTH); // scale it the smooth way
+        imageIcon = new ImageIcon(newimg);  // transform it back
+
+        highlightLabel = new JLabel(imageIcon);
+        highlightLabel.setVerticalAlignment(JLabel.CENTER);*/
     }
 
     public TjessSquare(Location location, Piece piece){
@@ -35,6 +49,18 @@ public class TjessSquare extends JPanel implements MouseListener
      */
     public void setParent(TjessBoard board){
         this.parentBoard = board;
+    }
+
+    public void setHighlighted(){
+        add(highlightLabel);
+        revalidate();
+        repaint();
+    }
+
+    public void removeHighlighted(){
+        remove(highlightLabel);
+        revalidate();
+        repaint();
     }
 
     /**
@@ -67,6 +93,11 @@ public class TjessSquare extends JPanel implements MouseListener
         return currentPiece;
     }
 
+    public boolean isKing() {
+        if (!isEmpty()) return currentPiece.getPiece() == Piece.Pieces.KING;
+        return false;
+    }
+
     public boolean isEmpty(){
         return currentPiece == null;
     }
@@ -90,6 +121,15 @@ public class TjessSquare extends JPanel implements MouseListener
 
     public Location getLocFileRank(){
         return this.location;
+    }
+
+    public void setBackgroundColor(Color color){
+        originalColor = getBackground();
+        setBackground(color);
+    }
+
+    public void setOriginalColor(){
+        setBackground(originalColor);
     }
 
     @Override
@@ -128,7 +168,6 @@ public class TjessSquare extends JPanel implements MouseListener
         DARK
     }
 
-    @Deprecated
     public static class Location {
         private final char file; // X place on the board
         private final int rank; // Y place on the board
